@@ -4,8 +4,8 @@ const require = createRequire(import.meta.url);
 
 export function parseOtlpJson(raw){
     const body = typeof raw === 'string' ? JSON.parse(raw) : JSON.parse(raw.toString());
-
-
+    return extractSpans(body);
+    console.log("The body parser",body)
 }
 
 
@@ -32,6 +32,7 @@ export function extractSpans(request){
     const resourceSpans = request.resourceSpans ?? request.resource_spans ?? [];
 
     for(const rs of resourceSpans ){
+        const resource = rs.resource ?? {};
         const scopeSpans = rs.scopeSpans ?? rs.scope_spans ?? rs.instrumentationLibrarySpans ?? [];
         for(const ss of scopeSpans){
             for(const span of (ss.spans ?? [])){

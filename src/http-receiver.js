@@ -14,11 +14,14 @@ export function createHttpReceiver(){
     }));
 
     app.post("/v1/traces",(req,res) => {
+
         try{
             const contentType = req.headers['content-type'] ?? '';
             const spans = contentType.includes('application/json')
                 ? parseOtlpJson(req.body.toString())
                 : parseOtlpProto(req.body);
+
+            console.log("The span",req.body.toString())    
             
             if(spans.length > 0){
                 store.ingest(spans);
