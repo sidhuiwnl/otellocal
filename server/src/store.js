@@ -143,7 +143,7 @@ function flattenAttrs(attrs) {
 
 
 
-function nanoToMs(nano){
+function nanosToMs(nano){
      if (!nano) return Date.now();
      
      // in otel the time comes in nano second so this converts it into milliseconds

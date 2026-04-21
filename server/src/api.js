@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { store } from "./store"
+import { store } from "./store.js"
 
 export function createApiRouter(){
     const router = Router();
