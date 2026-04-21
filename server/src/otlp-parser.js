@@ -8,6 +8,25 @@ export function parseOtlpJson(raw){
 
 }
 
+
+export function parseOtlpProto(buffer){
+    try{
+        const text = buffer.toString("utf-8");
+        if(text.trimStart().startsWith('{')) return parseOtlpJson(text);
+    }catch(_){}
+
+    try{
+        const transformer = require('@opentelemetry/otlp-transformer');
+        if(transformer?.deserializeTraceRequest){
+            return extractSpans(transformer.deserializeTraceRequest(buffer));
+        }
+    }catch(_){}
+    
+    throw new Error(
+    'Could not decode protobuf. Set OTEL_EXPORTER_OTLP_PROTOCOL=http/json in your app.'
+  );
+}
+
 export function extractSpans(request){
     const spans =   [];
     const resourceSpans = request.resourceSpans ?? request.resource_spans ?? [];
