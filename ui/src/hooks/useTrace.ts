@@ -6,17 +6,18 @@ const API_URL = 'http://localhost:4320/api'
 
 type Trace ={
     
-  traceId: string,
-  rootName: string,
-  service: string,
-  durationMs: number,
-  startTime: number,
-  [key : string] : any
+  traceId: string;
+  rootName: string;
+  service: string;
+  startMs : number;
+  durationMs: number;
+  startTime: number;
+  [key : string] : any;
 
 }
 
 
-export function useTrace(){
+export function useTraces(){
     const [traces,setTraces] = useState<Trace[]>([]);
     const [selectedTrace,setSelectedTrace] = useState<Trace  | null>(null);
     const [connected,setConnected] = useState(false);
@@ -83,7 +84,7 @@ export function useTrace(){
 
         setSelectedTrace(prev => prev?.traceId === traceId ? prev : {traceId, spans : []})
 
-        const res = await fetch(`${API_URL}/traces/${traceId}`);
+        const res = await fetch(`${API_URL}/trace/${traceId}`);
         const data = await res.json();
 
         setSelectedTrace(data)
