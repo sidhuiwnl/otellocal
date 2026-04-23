@@ -1,4 +1,5 @@
 import { EventEmitter } from "events"
+import { transaction,query } from "./db.js"
 
 
 const MAX_TRACES = 200;
@@ -17,7 +18,7 @@ class TraceStore extends EventEmitter{
         setInterval(() => this._evict(), 5 * 60_000)
     }
 
-    ingest(spans){
+    async ingest(spans){
         const touched = new Set();
 
         for (const span of spans){
