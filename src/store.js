@@ -1,6 +1,6 @@
 import { EventEmitter } from "events"
-import { transaction,query } from "./db.js"
 
+import {ananlyzeSpan,resetAnalyzer,recordSample} from "./analyzer.js"
 
 const MAX_TRACES = 200;
 const TTL_MS = 30 * 60_000; // drop traces older than 30 min
@@ -41,8 +41,13 @@ class TraceStore extends EventEmitter{
             const record = this._traces.get(tid);
             const startMs = nanosToMs(span.startTimeUnixNano);
             const endMs   = nanosToMs(span.endTimeUnixNano);
+            const durMs   = endMs - startMs
+            
 
             const service = getAttr(span.resource?.attributes,'service.name') ?? "unknown";
+
+            recordSample(span.name,durMs);
+            const analysis = analyseSpan(span.name, durMs)
 
             record.spans.push({
                 spanId:       span.spanId,
@@ -55,6 +60,7 @@ class TraceStore extends EventEmitter{
                 status:       span.status ?? { code: 0 },
                 kind:         span.kind ?? 0,
                 service,
+                analysis
             });
 
             if(!span.parentSpanId) record.rootName = span.name;
@@ -95,9 +101,14 @@ class TraceStore extends EventEmitter{
 
     clear(){
         this._traces.clear();
+        resetAnalyser() 
         this.emit("store:clear");
 
     }
+
+    getAll() {
+    return [...this._traces.values()]
+  }
 
     list(){
         return [...this._traces.values()]

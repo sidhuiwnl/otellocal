@@ -1,5 +1,8 @@
 import { Router } from "express"
 import { store } from "./store.js"
+import { buildGraph } from "./graph.js"
+import { getAllStats  } from "./analyzer.js";
+
 
 export function createApiRouter(){
     const router = Router();
@@ -18,6 +21,15 @@ export function createApiRouter(){
     router.delete("/traces",(req,res) =>{
         store.clear();
         res.json({ ok: true });
+    })
+
+    router.get('/stats', (req, res) => {
+        res.json(getAllStats())
+    })
+
+    router.get('/graph', (req, res) => {
+        const traces = store.getAll()
+        res.json(buildGraph(traces))
     })
 
     return router;

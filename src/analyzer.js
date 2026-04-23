@@ -65,8 +65,24 @@ export function ananlyzeSpan(spanName,durationMs){
 }
 
 
+export function getAllStats(){
+    const out = {}
+    for(const [name,samples] of history){
+        if(samples.length < 2) continue
 
-function resetAnalyzer(samples){
+        out[name] = {
+            p95:    Math.round(calcP95(samples)),
+            avg:    Math.round(samples.reduce((a, b) => a + b, 0) / samples.length),
+            min:    Math.round(Math.min(...samples)),
+            max:    Math.round(Math.max(...samples)),
+            count:  samples.length,
+        }
+    }
+    return out
+}
+
+
+export function resetAnalyzer(samples){
     history.clear()
 }
 
