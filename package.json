@@ -16,8 +16,10 @@
     "@grpc/proto-loader": "^0.8.0",
     "@opentelemetry/otlp-transformer": "^0.215.0",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "module": "^2.0.0",
+    "pg": "^8.20.0",
     "ws": "^8.20.0"
   }
 }
