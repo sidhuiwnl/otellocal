@@ -34,6 +34,7 @@ class TraceStore extends EventEmitter{
                     endMs: -Infinity,
                     hasError: false,
                     spans: [],
+                    logs:  [],
                     createdAt: Date.now(),
                 })
             }
@@ -47,7 +48,7 @@ class TraceStore extends EventEmitter{
             const service = getAttr(span.resource?.attributes,'service.name') ?? "unknown";
 
             recordSample(span.name,durMs);
-            const analysis = analyseSpan(span.name, durMs)
+            const analysis = ananlyzeSpan(span.name, durMs)
 
             record.spans.push({
                 spanId:       span.spanId,
@@ -78,6 +79,15 @@ class TraceStore extends EventEmitter{
 
         
 
+    }
+
+    ingestLogs(logs) {
+        for (const log of logs) {
+        const trace = this._traces.get(log.traceId)
+        if (!trace) continue  // log arrived before its trace — drop it
+        trace.logs.push(log)
+        // Don't emit a full trace:update for every log — UI polls logs separately
+        }
     }
 
 
@@ -123,6 +133,7 @@ class TraceStore extends EventEmitter{
          return {
             ...summarize(t),
             spans: [...t.spans].sort((a, b) => a.startMs - b.startMs),
+            logs:  [...t.logs].sort((a, b) => a.timestampMs - b.timestampMs),
          }
     }
 }

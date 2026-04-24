@@ -5,10 +5,11 @@ import Sidebar    from './components/Sidebar'
 import Timeline from './components/Timeline'
 import FlameGraph from './components/FlameGraph'
 import SpanDetail from './components/SpanDetail'
+import ServiceGraph  from './components/ServiceGraph'
 
 import './index.css'
 
-const TABS = ['timeline', 'flame', 'detail']
+const TABS = ['timeline', 'flame', 'detail','graph']
 
 export default function App() {
   const [tab, setTab] = useState('timeline')
@@ -63,6 +64,8 @@ export default function App() {
             {selectedTrace && tab === 'detail' && (
               <SpanDetail trace={selectedTrace} />
             )}
+
+            {tab === 'graph' && <ServiceGraph />}
           </div>
         </div>
       </div>

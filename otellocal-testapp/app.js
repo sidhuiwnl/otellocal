@@ -1,89 +1,107 @@
-import './tracing.js'  // must be first import
+import { sdk, tracer } from './tracing.js'
 import express from 'express'
+import { SpanStatusCode, context, trace } from '@opentelemetry/api'
 
-const app  = express()
+const app = express()
 app.use(express.json())
 
-// ── simulate async work ───────────────────────────────────────────────
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
-async function fakeDbQuery(query) {
-  // simulate variable DB latency
-  await sleep(20 + Math.random() * 80)
-  return { rows: [{ id: 1, name: 'Alice' }], query }
+// ── Simulate calling a downstream service ─────────────────────────────
+// In real life this would be an HTTP call to another process.
+// Here we create a child span with a different service.name attribute
+// so the graph builder sees it as a cross-service call.
+
+function simulateServiceCall(parentSpan, serviceName, operationName, durationMs, errorRate = 0) {
+  return new Promise(async (resolve, reject) => {
+    const childTracer = trace.getTracer(serviceName)
+    const ctx = trace.setSpan(context.active(), parentSpan)
+
+    await context.with(ctx, async () => {
+      const span = childTracer.startSpan(operationName, {
+        attributes: {
+          'service.name': serviceName,
+          'peer.service':  serviceName,
+        }
+      })
+
+      await sleep(durationMs + Math.random() * durationMs * 0.3)
+
+      if (Math.random() < errorRate) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: `${serviceName} error` })
+        span.end()
+        reject(new Error(`${serviceName} failed`))
+        return
+      }
+
+      span.setStatus({ code: SpanStatusCode.OK })
+      span.end()
+      resolve()
+    })
+  })
 }
 
-async function fakeCacheGet(key) {
-  await sleep(2 + Math.random() * 8)
-  // 40% cache hit rate
-  return Math.random() > 0.6 ? { hit: true, value: 'cached-data' } : { hit: false }
-}
+// ── Routes ────────────────────────────────────────────────────────────
 
-async function fakeExternalCall(service) {
-  await sleep(30 + Math.random() * 120)
-  if (Math.random() < 0.08) throw new Error(`${service} timeout`)
-  return { ok: true, service }
-}
-
-// ── routes ────────────────────────────────────────────────────────────
-
-// Simple fast route — shows as a clean short trace
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', ts: Date.now() })
+  res.json({ status: 'ok' })
 })
 
-// Route with DB query — you'll see the db span in otellocal
+// Calls user-service
 app.get('/api/users/:id', async (req, res) => {
-  const cache = await fakeCacheGet(`user:${req.params.id}`)
-  if (cache.hit) {
-    return res.json({ source: 'cache', user: cache.value })
-  }
-  const result = await fakeDbQuery(`SELECT * FROM users WHERE id = ${req.params.id}`)
-  res.json({ source: 'db', user: result.rows[0] })
-})
-
-// Route with multiple child operations — rich trace with many spans
-app.post('/api/orders', async (req, res) => {
+  const span = trace.getActiveSpan()
   try {
-    // these run sequentially — you'll see them stacked in the timeline
-    await fakeDbQuery('SELECT * FROM users WHERE id = $1')
-    await fakeCacheGet('inventory:item-42')
-    await fakeDbQuery('INSERT INTO orders (user_id, item_id) VALUES ($1, $2)')
-    await fakeExternalCall('payment-service')
-    await fakeExternalCall('email-service')
-
-    res.status(201).json({ orderId: `ord-${Date.now()}`, status: 'created' })
+    await simulateServiceCall(span, 'user-service', 'user.getById', 25)
+    await simulateServiceCall(span, 'cache-service', 'cache.get', 5)
+    res.json({ id: req.params.id, name: 'Alice' })
   } catch (err) {
-    // this will show as an error trace in otellocal — red dot in sidebar
     res.status(503).json({ error: err.message })
   }
 })
 
-// Route that sometimes errors — generates error traces
-app.get('/api/products', async (req, res) => {
+// Calls order-service which calls payment-service
+app.post('/api/orders', async (req, res) => {
+  const span = trace.getActiveSpan()
   try {
-    await fakeCacheGet('products:all')
-    await fakeExternalCall('catalog-service')
+    await simulateServiceCall(span, 'user-service',    'user.validate',      20)
+    await simulateServiceCall(span, 'order-service',   'order.create',       40)
+    await simulateServiceCall(span, 'payment-service', 'payment.charge',     80, 0.1)
+    await simulateServiceCall(span, 'email-service',   'email.sendReceipt',  30)
+    res.status(201).json({ orderId: `ord-${Date.now()}` })
+  } catch (err) {
+    res.status(503).json({ error: err.message })
+  }
+})
+
+// Calls catalog-service with higher error rate
+app.get('/api/products', async (req, res) => {
+  const span = trace.getActiveSpan()
+  try {
+    await simulateServiceCall(span, 'catalog-service', 'catalog.list', 35, 0.15)
     res.json({ products: [{ id: 1, name: 'Widget' }] })
   } catch (err) {
     res.status(503).json({ error: err.message })
   }
 })
 
-// Slow route — will show as a wide bar in the flame graph
+// Calls multiple services — best for seeing a rich graph
 app.get('/api/reports', async (req, res) => {
-  await fakeDbQuery('SELECT * FROM orders JOIN users ...')
-  await sleep(200 + Math.random() * 300)  // intentionally slow
-  await fakeDbQuery('SELECT COUNT(*) FROM events WHERE ...')
-  res.json({ report: 'generated', rows: 1024 })
+  const span = trace.getActiveSpan()
+  try {
+    await simulateServiceCall(span, 'user-service',    'user.list',          30)
+    await simulateServiceCall(span, 'order-service',   'order.aggregate',   180)
+    await simulateServiceCall(span, 'analytics-service','analytics.compute', 220)
+    res.json({ report: 'done' })
+  } catch (err) {
+    res.status(503).json({ error: err.message })
+  }
 })
 
 app.listen(3000, () => {
-  console.log('[testapp] running on http://localhost:3000')
-  console.log('[testapp] hit these routes to generate real traces:\n')
-  console.log('  curl http://localhost:3000/api/health')
-  console.log('  curl http://localhost:3000/api/users/42')
+  console.log('[testapp] http://localhost:3000')
+  console.log('\nhit these to populate the graph:\n')
+  console.log('  curl http://localhost:3000/api/users/1')
+  console.log('  curl -X POST http://localhost:3000/api/orders')
   console.log('  curl http://localhost:3000/api/products')
   console.log('  curl http://localhost:3000/api/reports')
-  console.log('  curl -X POST http://localhost:3000/api/orders')
 })

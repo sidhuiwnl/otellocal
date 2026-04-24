@@ -4,6 +4,14 @@ type SpanStatus = {
   code?: number
 }
 
+
+type SpanAnalysis = {
+  isSlow?: boolean
+  p95?: number
+  avgMs?: number
+  ratio?: number
+}
+
 type Span = {
   spanId: string
   parentSpanId?: string | null
@@ -12,6 +20,7 @@ type Span = {
   durationMs: number
   status?: SpanStatus
   attributes?: Record<string, unknown>
+  analysis?: SpanAnalysis
 }
 
 type Trace = {
@@ -98,28 +107,55 @@ export default function Timeline({ trace }: TimelineProps) {
         const isSelected = selectedSpan?.spanId === span.spanId
 
         return (
-          <div
-            key={span.spanId}
-            className={`span-row ${!span.parentSpanId ? 'is-root' : ''}`}
-            onClick={() => setSelectedSpan(isSelected ? null : span)}
-          >
-            <div className="span-label" title={span.name}>
-              {span.name}
-            </div>
+          // <div
+          //   key={span.spanId}
+          //   className={`span-row ${!span.parentSpanId ? 'is-root' : ''}`}
+          //   onClick={() => setSelectedSpan(isSelected ? null : span)}
+          // >
+          //   <div className="span-label" title={span.name}>
+          //     {span.name}
+          //   </div>
 
-            <div className="span-track">
-              <div
-                className={`span-bar ${isSelected ? 'selected' : ''}`}
-                style={{
-                  left: `${leftPct}%`,
-                  width: `${widthPct}%`,
-                  background: color,
-                }}
-              >
-                <span className="bar-dur">{span.durationMs}ms</span>
+          //   <div className="span-track">
+          //     <div
+          //       className={`span-bar ${isSelected ? 'selected' : ''}`}
+          //       style={{
+          //         left: `${leftPct}%`,
+          //         width: `${widthPct}%`,
+          //         background: color,
+          //       }}
+          //     >
+          //       <span className="bar-dur">{span.durationMs}ms</span>
+          //     </div>
+          //   </div>
+          // </div>
+
+          <div
+              key={span.spanId}
+              className={`span-row ${!span.parentSpanId ? 'is-root' : ''}`}
+              onClick={() => setSelectedSpan(isSelected ? null : span)}
+            >
+              <div className="span-label" title={span.name}>
+                {span.analysis?.isSlow && (
+                  <span className="slow-badge" title={`${span.analysis.ratio}x slower than p95 (${span.analysis.p95}ms)`}>
+                    ⚠
+                  </span>
+                )}
+                {span.name}
+              </div>
+              <div className="span-track">
+                <div
+                  className={`span-bar ${isSelected ? 'selected' : ''} ${span.analysis?.isSlow ? 'is-slow' : ''}`}
+                  style={{
+                    left:       `${leftPct}%`,
+                    width:      `${widthPct}%`,
+                    background: color,
+                  }}
+                >
+                  <span className="bar-dur">{span.durationMs}ms</span>
+                </div>
               </div>
             </div>
-          </div>
         )
       })}
 
@@ -133,19 +169,61 @@ export default function Timeline({ trace }: TimelineProps) {
   )
 }
 
-function SpanAttrs({ span }: { span: Span }) {
+// function SpanAttrs({ span }: { span: Span }) {
+//   const entries = Object.entries(span.attributes ?? {})
+
+//   return (
+//     <div className="span-attrs">
+//       <div className="attrs-title">
+//         {span.name} — {span.durationMs}ms
+//       </div>
+
+//       {entries.length === 0 && (
+//         <div className="no-attrs">no attributes</div>
+//       )}
+
+//       <table className="attrs-table">
+//         <tbody>
+//           {entries.map(([k, v]) => (
+//             <tr key={k}>
+//               <td className="attr-key">{k}</td>
+//               <td className="attr-val">{String(v)}</td>
+//             </tr>
+//           ))}
+//         </tbody>
+//       </table>
+//     </div>
+//   )
+// }
+
+type SpanAttrsProps = {
+  span: Span
+}
+
+
+
+function SpanAttrs({ span } : SpanAttrsProps) {
   const entries = Object.entries(span.attributes ?? {})
+  const a = span.analysis
 
   return (
     <div className="span-attrs">
-      <div className="attrs-title">
-        {span.name} — {span.durationMs}ms
-      </div>
+      <div className="attrs-title">{span.name} — {span.durationMs}ms</div>
 
-      {entries.length === 0 && (
-        <div className="no-attrs">no attributes</div>
+      {/* slow span analysis block */}
+      {a?.isSlow && (
+        <div className="slow-analysis">
+          <span className="slow-title">⚠ slow span detected</span>
+          <div className="slow-stats">
+            <span>this run: <strong>{span.durationMs}ms</strong></span>
+            <span>p95: <strong>{a.p95}ms</strong></span>
+            <span>avg: <strong>{a.avgMs}ms</strong></span>
+            <span>ratio: <strong>{a.ratio}x</strong></span>
+          </div>
+        </div>
       )}
 
+      {entries.length === 0 && <div className="no-attrs">no attributes</div>}
       <table className="attrs-table">
         <tbody>
           {entries.map(([k, v]) => (

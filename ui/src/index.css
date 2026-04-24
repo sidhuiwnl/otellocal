@@ -196,3 +196,74 @@ body {
   display: flex; gap: 12px; font-size: 11px;
   color: var(--text3); margin-bottom: 8px;
 }
+
+.slow-badge {
+  color: #EF9F27;
+  margin-right: 4px;
+  font-size: 11px;
+  cursor: help;
+}
+.span-bar.is-slow {
+  outline: 1px solid #EF9F27;
+  outline-offset: 1px;
+}
+
+
+.slow-analysis {
+  background: #2a1f00;
+  border: 1px solid #5a3e00;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.slow-title { font-size: 11px; font-weight: 500; color: #EF9F27; }
+.slow-stats {
+  display: flex; gap: 14px; margin-top: 4px;
+  font-size: 11px; color: var(--text2);
+}
+.slow-stats strong { color: var(--text); }
+
+
+/* Serive Graph css*/
+
+.service-graph { display: flex; flex-direction: column; gap: 8px; }
+.graph-legend {
+  display: flex; align-items: center; gap: 14px;
+  font-size: 11px; color: var(--text2);
+}
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-item .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+
+
+.warn-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  background: #2a1f00; color: #EF9F27;
+}
+.log-count-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  background: #0d1e2e; color: #4a9edd;
+}
+.span-toggle { color: var(--text3); margin-right: 4px; font-size: 11px; }
+
+.correlated-logs {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.logs-title { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+.log-line {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 11px; padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+.log-line:last-child { border: none; }
+.log-sev {
+  font-size: 10px; font-weight: 500; padding: 1px 5px;
+  border-radius: 3px; flex-shrink: 0; width: 42px; text-align: center;
+}
+.log-line.sev-info  .log-sev { background: #0d1e2e; color: #4a9edd; }
+.log-line.sev-warn  .log-sev { background: #2a1f00; color: #EF9F27; }
+.log-line.sev-error .log-sev { background: #2e1010; color: #E24B4A; }
+.log-body { flex: 1; color: var(--text); }
+.log-ts   { color: var(--text3); flex-shrink: 0; }

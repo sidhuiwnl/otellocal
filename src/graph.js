@@ -51,81 +51,78 @@
 }
  */
 
-export function buildGraph(traces){
-    // node key  → { id, service, spanCount, errorCount }
+export function buildGraph(traces) {
+  const nodes = new Map()
+  const edges = new Map()
 
-    const nodes = new Map();
+  for (const trace of traces) {
+    const spans = trace.spans ?? []
+    const spanById = new Map()
+    for (const span of spans) spanById.set(span.spanId, span)
 
-    // edge key  → { source, target, count, errors, durations[] }
+    for (const span of spans) {
+      // Get service — check attributes first (manual spans set this),
+      // fall back to the span.service field (auto-instrumentation)
+      const service = span.attributes?.['service.name']
+                   ?? span.attributes?.['peer.service']
+                   ?? span.service
+                   ?? 'unknown'
 
-    const edges = new Map();
+      if (!nodes.has(service)) {
+        nodes.set(service, {
+          id:         service,
+          service,
+          spanCount:  0,
+          errorCount: 0,
+        })
+      }
+      const node = nodes.get(service)
+      node.spanCount++
+      if (span.status?.code === 2) node.errorCount++
 
-    for(const trace of traces){
-        const span = trace.spans ?? [];
+      if (span.parentSpanId) {
+        const parent = spanById.get(span.parentSpanId)
+        if (parent) {
+          const parentService = parent.attributes?.['service.name']
+                             ?? parent.attributes?.['peer.service']
+                             ?? parent.service
+                             ?? 'unknown'
 
-        const spanId = new Map();
-
-        for(const span of spans) spanId.set(span.spanId,span)
-        
-        for(const span of spans){
-            if(!nodes.has(span.service)){
-                nodes.set(span.service,{
-                    id :  span.service,
-                    service:    span.service,
-                    spanCount:  0,
-                    errorCount: 0,
-                })
+          if (parentService !== service) {
+            const edgeKey = `${parentService}→${service}`
+            if (!edges.has(edgeKey)) {
+              edges.set(edgeKey, {
+                source:    parentService,
+                target:    service,
+                count:     0,
+                errors:    0,
+                durations: [],
+              })
             }
-
-            const node = nodes.get(span.service);
-            node.spanCount ++;
-
-            if (span.status?.code === 2) node.errorCount++;
-
-
-            if(span.parentSpanId){
-                const parent = spanId.get(span.parentSpanId);
-
-                if(parent && parent.service !== span.service){
-                    const edgeKey = `${parent.service} -> ${span.service}`
-
-
-                    if(!edges.has(edgeKey)){
-                         edges.set(edgeKey, {
-                            source:    parent.service,
-                            target:    span.service,
-                            count:     0,
-                            errors:    0,
-                            durations: [],
-                        })
-                    }
-
-                    const edge = edges.get(edgeKey)
-                    edge.count++
-                    edge.durations.push(span.durationMs)
-                    if (span.status?.code === 2) edge.errors++
-                }
-            }
-        }    
-
-        
+            const edge = edges.get(edgeKey)
+            edge.count++
+            edge.durations.push(span.durationMs)
+            if (span.status?.code === 2) edge.errors++
+          }
+        }
+      }
     }
+  }
 
-    const edgeList = [...edges.values()].map(e => ({
-        source:      e.source,
-        target:      e.target,
-        count:       e.count,
-        errors:      e.errors,
-        errorRate:   e.count > 0 ? Math.round(e.errors / e.count * 100) : 0,
-        avgMs:       Math.round(e.durations.reduce((a, b) => a + b, 0) / e.durations.length),
-        p95Ms:       calcP95(e.durations),
-    }))
+  const edgeList = [...edges.values()].map(e => ({
+    source:    e.source,
+    target:    e.target,
+    count:     e.count,
+    errors:    e.errors,
+    errorRate: e.count > 0 ? Math.round(e.errors / e.count * 100) : 0,
+    avgMs:     Math.round(e.durations.reduce((a, b) => a + b, 0) / e.durations.length),
+    p95Ms:     calcP95(e.durations),
+  }))
 
-    return {
+  return {
     nodes: [...nodes.values()],
     edges: edgeList,
   }
-
 }
 
 function calcP95(arr) {

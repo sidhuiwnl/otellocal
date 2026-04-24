@@ -2,26 +2,32 @@ import { NodeSDK } from '@opentelemetry/sdk-node'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
 import { resourceFromAttributes } from '@opentelemetry/resources'
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions'
+import { trace, context, SpanStatusCode } from '@opentelemetry/api'
 
 const exporter = new OTLPTraceExporter({
-  // points to your otellocal collector
   url: 'http://localhost:4318/v1/traces',
 })
 
-const sdk = new NodeSDK({
+export const sdk = new NodeSDK({
   resource: resourceFromAttributes({
-    [ATTR_SERVICE_NAME]:    'testapp',
-    [ATTR_SERVICE_VERSION]: '1.0.0',
+    [ATTR_SERVICE_NAME]: 'api-gateway',   // ← this service is api-gateway
   }),
   traceExporter: exporter,
-  // auto-instruments: http, express, dns, net — zero extra code
-  instrumentations: [getNodeAutoInstrumentations()],
+  instrumentations: [getNodeAutoInstrumentations({
+    '@opentelemetry/instrumentation-http': {
+      requestHook: (span, req) => {
+        // Give spans proper names instead of just "GET"
+        if (req.url) span.updateName(`${req.method} ${req.url}`)
+      },
+    },
+  })],
 })
 
 sdk.start()
-console.log('[tracing] OTel SDK started → http://localhost:4318')
 
-// Flush spans on shutdown so nothing is lost
+// Export tracer so app.js can create manual spans
+export const tracer = trace.getTracer('api-gateway')
+
 process.on('SIGTERM', () => sdk.shutdown())
 process.on('SIGINT',  () => sdk.shutdown())
